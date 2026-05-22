@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { agentChat, ApiError } from '@/api/index';
 import { APP_HEADER_HEIGHT, PAGE_SHELL } from '@/lib/layout';
 import { cn } from '@/lib/utils';
 
@@ -29,24 +30,6 @@ type Message = {
 	role: 'user' | 'assistant';
 	content: string;
 	citations?: { label: string; excerpt: string }[];
-};
-
-const MOCK_ANSWER: Message = {
-	id: 'a1',
-	role: 'assistant',
-	content:
-		'肺栓塞（PE）是指内源性或外源性栓子阻塞肺动脉或其分支，导致肺循环障碍的临床综合征。典型表现包括突发呼吸困难、胸痛、咯血，严重者可出现休克或猝死。',
-	citations: [
-		{
-			label: '《内科学》第 8 版 · 第 3 章 · p.128',
-			excerpt:
-				'肺栓塞是由于内源性或外源性栓子堵塞肺动脉或其分支，引起肺循环障碍的临床综合征。',
-		},
-		{
-			label: '《诊断学》第 8 版 · 呼吸系统 · p.42',
-			excerpt: '常见症状为呼吸困难、胸痛、咯血，称为「三联征」。',
-		},
-	],
 };
 
 const SCOPE_OPTIONS: { key: Scope; label: string }[] = [
@@ -153,11 +136,14 @@ export function ChatPage() {
 		{
 			id: 'welcome',
 			role: 'assistant',
-			content:
-				'你好，我是 MedRAG。基于知识库检索作答，并标注引用来源。（演示）',
+			content: '你好，我是 MedRAG。输入医学问题，将调用后端大模型作答。',
 		},
 	]);
 	const [loading, setLoading] = useState(false);
+	const [threadId] = useState(
+		() =>
+			`web-${typeof crypto !== 'undefined' ? crypto.randomUUID() : Date.now()}`,
+	);
 
 	const lastCitations = [...messages]
 		.reverse()
@@ -167,7 +153,7 @@ export function ChatPage() {
 		if (lastCitations?.length) setSidebarOpen(true);
 	}, [lastCitations]);
 
-	function handleSend() {
+	async function handleSend() {
 		const text = input.trim();
 		if (!text || loading) return;
 		setMessages((prev) => [
@@ -176,13 +162,30 @@ export function ChatPage() {
 		]);
 		setInput('');
 		setLoading(true);
-		setTimeout(() => {
+		try {
+			const { reply } = await agentChat(text, { threadId });
 			setMessages((prev) => [
 				...prev,
-				{ ...MOCK_ANSWER, id: `a-${Date.now()}` },
+				{ id: `a-${Date.now()}`, role: 'assistant', content: reply },
 			]);
+		} catch (err) {
+			const hint =
+				err instanceof ApiError
+					? err.message
+					: err instanceof Error
+						? err.message
+						: '未知错误';
+			setMessages((prev) => [
+				...prev,
+				{
+					id: `e-${Date.now()}`,
+					role: 'assistant',
+					content: `请求失败：${hint}`,
+				},
+			]);
+		} finally {
 			setLoading(false);
-		}, 800);
+		}
 	}
 
 	return (
@@ -257,7 +260,7 @@ export function ChatPage() {
 							{loading && (
 								<p className='text-muted-foreground flex items-center gap-2 text-sm'>
 									<Loader2 className='text-primary size-4 animate-spin' />
-									检索中…
+									正在向大模型请求…
 								</p>
 							)}
 							{messages.some((m) => m.citations) && (
