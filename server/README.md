@@ -4,21 +4,20 @@
 
 ```
 server/
-├── main.py                 # FastAPI 入口
+├── main.py
 ├── requirements.txt
-├── .env.example
+├── alembic/                # 数据库迁移
 ├── app/
-│   ├── config.py           # 环境变量 / 模型配置
+│   ├── config.py
+│   ├── db/                 # engine、get_session
+│   ├── models/             # User、Document、Chunk（SQLModel）
 │   ├── agents/
-│   │   └── base.py         # create_base_agent、invoke_agent
 │   ├── tools/
-│   │   └── weather.py      # 示例 Tool
 │   └── api/v1/
-│       ├── router.py
-│       └── agent.py        # POST /api/v1/agent/chat
 └── scripts/
-    └── run_agent_demo.py   # 本地跑 Agent 示例
 ```
+
+数据库 Docker 与迁移说明见仓库根目录 [`doc/database-setup.md`](../doc/database-setup.md)。
 
 ## 安装与运行
 
@@ -28,7 +27,18 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# 编辑 .env，填入智谱 OPENAI_API_KEY（见 .env.example）
+# 编辑 .env：ARK_API_KEY、DATABASE_URL 等
+```
+
+### 0. 数据库（阶段 B + C）
+
+```bash
+# 仓库根目录
+docker compose -f docker/docker-compose.yml up -d
+cd server && source .venv/bin/activate
+pip install -r requirements.txt
+alembic upgrade head
+curl http://127.0.0.1:8000/api/v1/health/db   # 需先启动 uvicorn
 ```
 
 ### 1. 命令行跑 Agent 示例

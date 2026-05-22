@@ -2,7 +2,10 @@ import {
 	devLogRequestInterceptor,
 	jsonContentTypeInterceptor,
 } from './interceptors/request';
-import { devLogResponseInterceptor, httpErrorInterceptor } from './interceptors/response';
+import {
+	devLogResponseInterceptor,
+	httpErrorInterceptor,
+} from './interceptors/response';
 import { networkErrorInterceptor } from './interceptors/error';
 import type {
 	ApiRequestOptions,
@@ -16,10 +19,7 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? '/backend').replace(
 	'',
 );
 
-function buildUrl(
-	path: string,
-	params?: ApiRequestOptions['params'],
-): string {
+function buildUrl(path: string, params?: ApiRequestOptions['params']): string {
 	const normalized = path.startsWith('/') ? path : `/${path}`;
 	const full = path.startsWith('http') ? path : `${API_BASE}${normalized}`;
 

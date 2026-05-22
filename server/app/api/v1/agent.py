@@ -43,6 +43,8 @@ def agent_chat(body: AgentChatRequest) -> AgentChatResponse:
 	agent = _get_agent()
 	# 2. 把用户 message 交给 Agent，得到包含 messages 列表的字典
 	result = invoke_agent(agent, body.message, thread_id=body.thread_id)
+	# 我想看一下 result 的内容
+	print(result)
 	# 3. 封装成 API 响应：提取最后一条助手文字 + 消息条数
 	return AgentChatResponse(
 		reply=format_agent_reply(result),

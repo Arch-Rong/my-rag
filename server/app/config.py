@@ -22,6 +22,13 @@ class Settings(BaseSettings):
 	openai_api_key: str = ''
 	openai_api_base: str | None = None
 
+	# PostgreSQL + pgvector（阶段 B/C）
+	database_url: str = (
+		'postgresql+psycopg://medrag:medrag@127.0.0.1:5432/medrag'
+	)
+	embedding_dim: int = 1024
+	database_echo: bool = False
+
 	@property
 	def llm_api_key(self) -> str:
 		return self.ark_api_key or self.openai_api_key

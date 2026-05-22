@@ -1,0 +1,33 @@
+# MedRAG 阶段 B：PostgreSQL + pgvector（一体，无需再开 Milvus/Qdrant 容器）
+#
+# 说明：
+#   - pgvector 不是独立数据库，而是 Postgres 的扩展（见 init/01-pgvector.sql）
+#   - 业务表 users / documents 与向量字段 chunks.embedding 都在本库 medrag 里
+#   - 镜像 pgvector/pgvector:pg16 = 已预装 vector 扩展的 PostgreSQL 16
+#
+# 用法（仓库根目录）：
+#   docker compose -f docker/docker-compose.yml up -d
+#   docker compose -f docker/docker-compose.yml ps
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: medrag-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: medrag
+      POSTGRES_PASSWORD: medrag
+      POSTGRES_DB: medrag
+    ports:
+      - '5432:5432'
+    volumes:
+      - medrag_pg_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U medrag -d medrag']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  medrag_pg_data:
