@@ -1,13 +1,14 @@
-# MedRAG 阶段 B：PostgreSQL + pgvector（一体，无需再开 Milvus/Qdrant 容器）
+# MedRAG 本地基础设施：PostgreSQL + pgvector + MinIO
 #
 # 说明：
-#   - pgvector 不是独立数据库，而是 Postgres 的扩展（见 init/01-pgvector.sql）
-#   - 业务表 users / documents 与向量字段 chunks.embedding 都在本库 medrag 里
-#   - 镜像 pgvector/pgvector:pg16 = 已预装 vector 扩展的 PostgreSQL 16
+#   - pgvector：业务表 + 向量都在 Postgres（init/01-pgvector.sql）
+#   - MinIO：用户上传的 PDF / MD 源文件（S3 兼容 API）
 #
 # 用法（仓库根目录）：
 #   docker compose -f docker/docker-compose.yml up -d
 #   docker compose -f docker/docker-compose.yml ps
+#   MinIO 控制台：http://127.0.0.1:9001 （medrag / medrag_dev）
+#   首次使用：在控制台新建 bucket「medrag-uploads」（或由后端首次上传时自动创建）
 
 services:
   postgres:
@@ -29,5 +30,26 @@ services:
       timeout: 5s
       retries: 10
 
+  minio:
+    image: minio/minio:latest
+    container_name: medrag-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: medrag
+      MINIO_ROOT_PASSWORD: medrag_dev
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - medrag_minio_data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
 volumes:
   medrag_pg_data:
+  medrag_minio_data:

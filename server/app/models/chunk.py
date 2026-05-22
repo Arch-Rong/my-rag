@@ -11,7 +11,7 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 # pgvector 提供的列类型，不是单独的数据库
 from pgvector.sqlalchemy import Vector
@@ -66,4 +66,4 @@ class Chunk(SQLModel, table=True):
 	)
 
 	# 反向关系：chunk.document 可回到所属 Document
-	document: 'Document | None' = Relationship(back_populates='chunks')
+	document: Optional['Document'] = Relationship(back_populates='chunks')

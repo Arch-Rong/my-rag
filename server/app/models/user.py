@@ -27,6 +27,9 @@ class User(SQLModel, table=True):
 	# 显示名称，例如「张同学」
 	display_name: str | None = Field(default=None, max_length=128)
 
+	# bcrypt 密码哈希；系统预置用户、仅 OAuth 用户可为空
+	password_hash: str | None = Field(default=None, max_length=255)
+
 	# 注册时间，由数据库默认 now()
 	created_at: datetime = Field(
 		sa_column=Column(

@@ -24,6 +24,14 @@ class SourceType(str, Enum):
 	user_upload = 'user_upload'  # 用户上传（默认）
 
 
+class RetrievalScope(str, Enum):
+	"""RAG 检索范围（聊天接口用）"""
+
+	system_only = 'system_only'  # 仅系统预置库（未登录默认）
+	user_only = 'user_only'  # 仅当前用户上传库（需登录）
+	all = 'all'  # 系统 + 当前用户（需登录）
+
+
 class DocumentStatus(str, Enum):
 	"""文档入库流水线状态（知识库列表页显示「解析中」「已向量化」等）"""
 

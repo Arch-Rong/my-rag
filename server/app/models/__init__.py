@@ -15,7 +15,7 @@
 
 from app.models.chunk import Chunk
 from app.models.document import Document
-from app.models.enums import DocumentStatus, OwnerType, SourceType
+from app.models.enums import DocumentStatus, OwnerType, RetrievalScope, SourceType
 from app.models.user import User
 
 __all__ = [
@@ -25,4 +25,5 @@ __all__ = [
 	'OwnerType',
 	'SourceType',
 	'DocumentStatus',
+	'RetrievalScope',
 ]

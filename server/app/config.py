@@ -29,6 +29,25 @@ class Settings(BaseSettings):
 	embedding_dim: int = 1024
 	database_echo: bool = False
 
+	# 对象存储：s3 = MinIO（默认），filesystem = 本地目录（测试）
+	storage_backend: str = 's3'
+	storage_local_root: str = './data/object-storage'
+
+	s3_endpoint: str = 'http://127.0.0.1:9000'
+	s3_access_key: str = 'medrag'
+	s3_secret_key: str = 'medrag_dev'
+	s3_bucket: str = 'medrag-uploads'
+	s3_region: str = 'us-east-1'
+	s3_use_ssl: bool = False
+
+	# 上传限制
+	max_upload_bytes: int = 52_428_800  # 50 MiB
+
+	# JWT 登录（生产务必改 JWT_SECRET_KEY）
+	jwt_secret_key: str = 'dev-change-me-use-openssl-rand-hex-32'
+	jwt_algorithm: str = 'HS256'
+	jwt_expire_minutes: int = 60 * 24 * 7  # 7 天
+
 	@property
 	def llm_api_key(self) -> str:
 		return self.ark_api_key or self.openai_api_key

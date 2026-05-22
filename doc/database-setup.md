@@ -1,6 +1,6 @@
-# 数据库阶段 B + C（PostgreSQL + pgvector + SQLModel）
+# 数据库与对象存储（PostgreSQL + pgvector + MinIO）
 
-## B：启动 Postgres
+## B：启动 Postgres 与 MinIO
 
 在仓库根目录：
 
@@ -9,10 +9,14 @@ docker compose -f docker/docker-compose.yml up -d
 docker compose -f docker/docker-compose.yml ps
 ```
 
-- 镜像：`pgvector/pgvector:pg16`
-- 端口：`5432`
-- 账号：`medrag` / `medrag`，库名：`medrag`
-- 首次启动会自动执行 `docker/init/01-pgvector.sql` 安装 `vector` 扩展
+| 服务 | 说明 |
+|------|------|
+| **postgres** | `pgvector/pgvector:pg16`，端口 `5432`，账号 `medrag` / `medrag`，库 `medrag` |
+| **minio** | S3 兼容对象存储，API `9000`，控制台 http://127.0.0.1:9001（`medrag` / `medrag_dev`） |
+
+Postgres 首次启动会执行 `docker/init/01-pgvector.sql` 安装 `vector` 扩展。
+
+**MinIO bucket**：在控制台新建 `medrag-uploads`（与 `server/.env` 的 `S3_BUCKET` 一致）；不建也可以，后端首次上传时会尝试自动创建。
 
 ## C：Python 依赖与迁移
 
@@ -33,6 +37,29 @@ curl http://127.0.0.1:8000/api/v1/health/db
 
 # 进入数据库
 docker exec -it medrag-postgres psql -U medrag -d medrag -c '\dt'
+
+# 注册 / 登录（或使用 seed 演示账号）
+cd server && source .venv/bin/activate
+alembic upgrade head
+python scripts/seed_demo_user.py
+# 演示：demo@medrag.local / demo-pass-123
+
+TOKEN=$(curl -s -X POST http://127.0.0.1:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@medrag.local","password":"demo-pass-123"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+# 上传 PDF / MD（Bearer）
+curl -X POST http://127.0.0.1:8000/api/v1/documents \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@/tmp/notes.md" \
+  -F "title=我的笔记"
+
+# 下载源文件
+curl -OJ http://127.0.0.1:8000/api/v1/documents/<document_id>/file
+
+# 删除（软删 DB + 删 MinIO 对象 + 删 chunks）
+curl -X DELETE http://127.0.0.1:8000/api/v1/documents/<document_id>
 ```
 
 应看到表：`users`、`documents`、`chunks`。

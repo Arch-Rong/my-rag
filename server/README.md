@@ -30,16 +30,36 @@ cp .env.example .env
 # 编辑 .env：ARK_API_KEY、DATABASE_URL 等
 ```
 
-### 0. 数据库（阶段 B + C）
+### 0. 数据库与 MinIO（阶段 B + C）
 
 ```bash
 # 仓库根目录
 docker compose -f docker/docker-compose.yml up -d
 cd server && source .venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env   # 含 S3_ENDPOINT 等
 alembic upgrade head
+python scripts/seed_demo_user.py   # 演示账号 demo@medrag.local / demo-pass-123
 curl http://127.0.0.1:8000/api/v1/health/db   # 需先启动 uvicorn
 ```
+
+### 认证（JWT）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/v1/auth/register` | 注册，返回 `access_token` |
+| POST | `/api/v1/auth/login` | 登录 |
+| GET | `/api/v1/auth/me` | 当前用户（需 `Authorization: Bearer`） |
+
+**文档上传 / 下载 / 删除**（需登录 Bearer）：
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/v1/documents` | multipart：`file`（pdf/md），可选 `title` |
+| GET | `/api/v1/documents/{id}/file` | 下载源文件（仅本人） |
+| DELETE | `/api/v1/documents/{id}` | 软删记录、删 MinIO 对象与 chunks |
+
+**聊天** `POST /api/v1/agent/chat`：`scope` 默认 `system_only`（未登录可用）；`user_only` / `all` 需登录。
 
 ### 1. 命令行跑 Agent 示例
 
