@@ -14,7 +14,7 @@ from sqlmodel import Session
 from app.config import get_settings
 # 演示脚本用的天气工具
 from app.models.enums import RetrievalScope
-from app.tools import ALL_TOOLS
+from app.tools import merge_tools
 
 _SCOPE_HINT = {
 	RetrievalScope.all: '全部（系统教材 + 我的上传）',
@@ -57,7 +57,7 @@ def create_base_agent(
 
 	return create_agent(
 		model=chat_model,
-		tools=tools if tools is not None else ALL_TOOLS,
+		tools=merge_tools(tools),
 		system_prompt=system_prompt or settings.agent_system_prompt,
 	)
 
@@ -67,22 +67,35 @@ def create_chat_agent(
 	*,
 	scope: RetrievalScope,
 	user_id: uuid.UUID | None = None,
+	use_rag: bool = True,
 ) -> Any:
 	"""
-	聊天专用 Agent：按 scope 注册知识库工具，不再暴露天气演示工具。
+	聊天专用 Agent。
+
+	use_rag=True：注册知识库工具，要求基于检索资料作答；
+	use_rag=False：无工具，通用对话（检索门控关闭时）。
 	"""
+	settings = get_settings()
+	scope_hint = _SCOPE_HINT[scope]
+
+	if not use_rag:
+		system_prompt = (
+			f'{settings.agent_general_prompt}\n\n'
+			f'（用户界面当前检索范围为 {scope_hint}，但本轮未命中知识库，未注入参考资料。）'
+		)
+		return create_base_agent(tools=[], system_prompt=system_prompt)
+
 	from app.tools.knowledge_base import build_knowledge_tools
 
-	settings = get_settings()
 	tools = build_knowledge_tools(session, scope=scope, user_id=user_id)
-	scope_hint = _SCOPE_HINT[scope]
 	system_prompt = (
 		f'{settings.agent_system_prompt}\n\n'
 		f'当前知识库检索范围：{scope_hint}。\n'
 		'工具说明：\n'
-		'- search_knowledge：混合检索（向量+关键词）资料片段，回答前优先调用；\n'
-		'- list_knowledge_documents：列出当前范围内的文档，用户问「有哪些文件/资料」时调用。\n'
-		'请基于检索结果作答并引用来源；若无相关内容，如实说明。'
+		'- search_knowledge：混合检索（向量+关键词）资料片段；\n'
+		'- list_knowledge_documents：列出当前范围内的文档。\n'
+		'请优先依据已注入的参考资料或工具检索结果作答，并注明来源；'
+		'若资料中无相关内容，如实说明，不要用「整个知识库只有医学资料」这类笼统拒答。'
 	)
 	return create_base_agent(tools=tools, system_prompt=system_prompt)
 

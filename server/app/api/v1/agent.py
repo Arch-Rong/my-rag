@@ -14,6 +14,7 @@ from app.config import get_settings
 from app.db.session import get_session
 from app.models.enums import RetrievalScope
 from app.models.user import User
+from app.rag.gate import should_activate_rag
 from app.services.retrieval_service import (
 	format_rag_context,
 	hits_to_citations,
@@ -116,18 +117,23 @@ def agent_chat(
 	user_id = current_user.id if current_user else None
 	_ensure_llm_configured()
 
-	# 1. 按 scope 预检索，注入上下文 + 返回引用侧栏
+	# 1. 预检索 + 门控：仅 kb_intent 或分数够高时启用 RAG
 	hits = search_chunks(
 		session,
 		body.message,
 		scope=scope,
 		user_id=user_id,
 	)
-	rag_context = format_rag_context(hits)
-	citations = [CitationItem(**c) for c in hits_to_citations(hits)]
+	use_rag = should_activate_rag(body.message, hits)
+	rag_context = format_rag_context(hits) if use_rag else ''
+	citations = (
+		[CitationItem(**c) for c in hits_to_citations(hits)] if use_rag else []
+	)
 
-	# 2. 创建带知识库工具的 Agent 并调用
-	agent = create_chat_agent(session, scope=scope, user_id=user_id)
+	# 2. 按门控创建 Agent（RAG 模式带工具，否则通用对话）
+	agent = create_chat_agent(
+		session, scope=scope, user_id=user_id, use_rag=use_rag
+	)
 	try:
 		result = invoke_agent(
 			agent,

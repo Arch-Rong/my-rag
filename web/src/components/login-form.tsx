@@ -51,7 +51,7 @@ export function LoginForm() {
 					type='email'
 					autoComplete='email'
 					placeholder='you@example.com'
-					className='h-11 bg-background/60'
+					className='bg-background/60 h-11'
 					value={email}
 					onChange={(e) => setEmail(e.target.value)}
 					required
@@ -64,7 +64,7 @@ export function LoginForm() {
 					type='password'
 					autoComplete='current-password'
 					placeholder='••••••••'
-					className='h-11 bg-background/60'
+					className='bg-background/60 h-11'
 					value={password}
 					onChange={(e) => setPassword(e.target.value)}
 					required
@@ -94,8 +94,8 @@ export function LoginForm() {
 					type='button'
 					className='text-primary hover:underline'
 					onClick={() => {
-						setEmail('demo@medrag.local');
-						setPassword('demo-pass-123');
+						setEmail('admin@qq.com');
+						setPassword('12345678');
 					}}
 				>
 					一键填入
@@ -117,7 +117,7 @@ export function LoginPageFooter() {
 			还没有账号？{' '}
 			<Link
 				href={registerHref}
-				className='text-foreground font-medium transition-colors hover:text-primary'
+				className='text-foreground hover:text-primary font-medium transition-colors'
 			>
 				注册
 			</Link>

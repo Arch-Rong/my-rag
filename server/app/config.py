@@ -68,6 +68,13 @@ class Settings(BaseSettings):
 	retrieval_sparse_top_k: int = 12
 	retrieval_final_top_k: int = 6
 	retrieval_rrf_k: int = 60
+	# 检索门控：映射后最高分 < τ 且非 kb_intent → 不注入 RAG（见 app/rag/gate.py）
+	retrieval_gate_score_threshold: float = 0.25
+
+	agent_general_prompt: str = (
+		'你是 MedRAG 学习助手。本轮未启用知识库检索，请用通用知识直接、简洁地回答。'
+		'不要声称「知识库中没有资料」；若与医学或用户文档相关，可建议用户换种问法或提到「知识库/教材/我的上传」。'
+	)
 
 	@property
 	def llm_api_key(self) -> str:
