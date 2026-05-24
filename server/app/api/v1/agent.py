@@ -6,14 +6,19 @@ from fastapi import APIRouter, Depends, HTTPException
 # Pydantic：校验请求体、定义响应 JSON 结构
 from pydantic import BaseModel, Field
 from openai import APIConnectionError, APIError, AuthenticationError
+from sqlmodel import Session
 
 from app.auth.deps import get_optional_user
+from app.agents.base import create_chat_agent, format_agent_reply, invoke_agent
 from app.config import get_settings
+from app.db.session import get_session
 from app.models.enums import RetrievalScope
 from app.models.user import User
-
-# 从业务层引入：创建 Agent、调用 Agent、把结果转成纯文本
-from app.agents.base import create_base_agent, format_agent_reply, invoke_agent
+from app.services.retrieval_service import (
+	format_rag_context,
+	hits_to_citations,
+	search_chunks,
+)
 
 # 本文件的路由前缀是 /agent；在 router.py 里还会再挂一层 /api/v1
 # 最终完整路径：POST /api/v1/agent/chat
@@ -29,16 +34,22 @@ _PLACEHOLDER_API_KEYS = frozenset(
 )
 
 
+class CitationItem(BaseModel):
+	id: str
+	label: str
+	excerpt: str
+
+
 # ---------- 请求体：客户端 POST 时要传的 JSON ----------
 class AgentChatRequest(BaseModel):
 	# 用户问题，必填，至少 1 个字符
 	message: str = Field(..., min_length=1, description='用户问题')
 	# 可选：同一会话 ID，用于 LangChain 多轮记忆（不传则每次当新对话）
 	thread_id: str | None = Field(default=None, description='可选，多轮会话 ID')
-	# 检索范围：未登录仅允许 system_only
+	# 检索范围：对应前端 全部 / 教材 / 我的；默认全部（未登录会降级为教材）
 	scope: RetrievalScope = Field(
-		default=RetrievalScope.system_only,
-		description='system_only | user_only | all',
+		default=RetrievalScope.all,
+		description='all | system_only | user_only',
 	)
 
 
@@ -50,23 +61,20 @@ class AgentChatResponse(BaseModel):
 	raw_message_count: int
 	# 实际使用的检索范围（RAG 接入后按 scope 过滤文档）
 	scope: RetrievalScope
+	citations: list[CitationItem] = Field(default_factory=list)
 
 
-# 带缓存的工厂：进程内只调用一次 create_base_agent()，避免每个请求都重建 Agent
-@lru_cache
-def _get_agent():
-	return create_base_agent()
-
-
-# 注册 POST 接口；response_model 会让 FastAPI 按 AgentChatResponse 生成 OpenAPI 文档
 def _resolve_scope(
 	body: AgentChatRequest, current_user: User | None
 ) -> RetrievalScope:
-	if body.scope in (RetrievalScope.user_only, RetrievalScope.all) and current_user is None:
+	if body.scope == RetrievalScope.user_only and current_user is None:
 		raise HTTPException(
 			status_code=401,
-			detail='login required for user_only or all scope',
+			detail='login required for user_only scope',
 		)
+	# 未登录时「全部」降级为仅系统教材，避免 401
+	if body.scope == RetrievalScope.all and current_user is None:
+		return RetrievalScope.system_only
 	return body.scope
 
 
@@ -102,22 +110,39 @@ def _raise_llm_http_error(exc: Exception) -> None:
 def agent_chat(
 	body: AgentChatRequest,
 	current_user: User | None = Depends(get_optional_user),
+	session: Session = Depends(get_session),
 ) -> AgentChatResponse:
 	scope = _resolve_scope(body, current_user)
+	user_id = current_user.id if current_user else None
 	_ensure_llm_configured()
-	# 1. 拿到（或复用缓存的）LangChain Agent 实例
-	agent = _get_agent()
-	# 2. 把用户 message 交给 Agent，得到包含 messages 列表的字典
+
+	# 1. 按 scope 预检索，注入上下文 + 返回引用侧栏
+	hits = search_chunks(
+		session,
+		body.message,
+		scope=scope,
+		user_id=user_id,
+	)
+	rag_context = format_rag_context(hits)
+	citations = [CitationItem(**c) for c in hits_to_citations(hits)]
+
+	# 2. 创建带知识库工具的 Agent 并调用
+	agent = create_chat_agent(session, scope=scope, user_id=user_id)
 	try:
-		result = invoke_agent(agent, body.message, thread_id=body.thread_id)
+		result = invoke_agent(
+			agent,
+			body.message,
+			thread_id=body.thread_id,
+			rag_context=rag_context or None,
+		)
 	except (AuthenticationError, APIConnectionError, APIError) as exc:
 		_raise_llm_http_error(exc)
 	except Exception as exc:
 		_raise_llm_http_error(exc)
-	# TODO: RAG 检索时按 scope + current_user.id 过滤 documents/chunks
-	# 3. 封装成 API 响应：提取最后一条助手文字 + 消息条数
+
 	return AgentChatResponse(
 		reply=format_agent_reply(result),
 		raw_message_count=len(result.get('messages') or []),
 		scope=scope,
+		citations=citations,
 	)

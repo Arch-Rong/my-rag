@@ -1,11 +1,11 @@
 """
-文档入库 Worker 逻辑：读 MinIO → 解析 → 结构分片 → 写 chunks。
-
-向量化（embedding）为下一步；当前 chunks.embedding 保持 NULL，
-documents.status 在分片成功后设为 ready（检索需后续接 embedding）。
+文档入库 Worker 逻辑：读 MinIO → 解析 → 结构分片 → 写 chunks → 向量化。
 """
 
+import logging
 import uuid  # 文档主键 document_id 的类型
+
+logger = logging.getLogger(__name__)
 
 from sqlmodel import Session, delete, select  # ORM 会话；delete/select 写 SQL
 
@@ -86,8 +86,21 @@ def ingest_document(
 	# --- 阶段 5：成功路径一次性提交 chunks + document ---
 	session.add(document)
 	session.commit()  # 写入新 Chunk 行 + ready 状态
-	session.refresh(document)  # 返回前与数据库一致
-	return document  # 调用方可读最新 status / chunk_count
+	session.refresh(document)
+
+	# --- 阶段 6：向量化（pgvector），失败不阻断 ready，可后续脚本补跑 ---
+	if settings.embed_on_ingest and settings.llm_api_key.strip():
+		try:
+			from app.services.embedding_service import embed_document_chunks
+
+			embed_document_chunks(session, document_id)
+		except Exception:
+			logger.exception(
+				'embedding failed for document %s; sparse search still available',
+				document_id,
+			)
+
+	return document
 
 
 def list_queued_document_ids(session: Session, limit: int = 50) -> list[uuid.UUID]:

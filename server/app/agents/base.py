@@ -1,17 +1,26 @@
 # os.environ：把 .env 里的配置写进「环境变量」，LangChain / OpenAI SDK 会从这里读 Key
 import os
 # Any：表示「任意类型」，用于 invoke 返回的复杂字典
+import uuid
 from typing import Any
 
 # LangChain 官方：用「模型 + 工具 + 系统提示」拼出一个可执行的 Agent（底层是 LangGraph）
 from langchain.agents import create_agent
 # 火山方舟提供 OpenAI 兼容 Chat API（base_url 为 ark.cn-beijing.volces.com/api/v3）
 from langchain_openai import ChatOpenAI
+from sqlmodel import Session
 
 # 读 .env 配置（API Key、模型名、系统提示等）
 from app.config import get_settings
-# 所有注册给 Agent 用的工具函数列表（目前有 get_weather）
+# 演示脚本用的天气工具
+from app.models.enums import RetrievalScope
 from app.tools import ALL_TOOLS
+
+_SCOPE_HINT = {
+	RetrievalScope.all: '全部（系统教材 + 我的上传）',
+	RetrievalScope.system_only: '教材（系统预置）',
+	RetrievalScope.user_only: '我的上传',
+}
 
 
 def create_base_agent(
@@ -53,12 +62,56 @@ def create_base_agent(
 	)
 
 
-def invoke_agent(agent, user_content: str, *, thread_id: str | None = None) -> dict[str, Any]:
+def create_chat_agent(
+	session: Session,
+	*,
+	scope: RetrievalScope,
+	user_id: uuid.UUID | None = None,
+) -> Any:
+	"""
+	聊天专用 Agent：按 scope 注册知识库工具，不再暴露天气演示工具。
+	"""
+	from app.tools.knowledge_base import build_knowledge_tools
+
+	settings = get_settings()
+	tools = build_knowledge_tools(session, scope=scope, user_id=user_id)
+	scope_hint = _SCOPE_HINT[scope]
+	system_prompt = (
+		f'{settings.agent_system_prompt}\n\n'
+		f'当前知识库检索范围：{scope_hint}。\n'
+		'工具说明：\n'
+		'- search_knowledge：混合检索（向量+关键词）资料片段，回答前优先调用；\n'
+		'- list_knowledge_documents：列出当前范围内的文档，用户问「有哪些文件/资料」时调用。\n'
+		'请基于检索结果作答并引用来源；若无相关内容，如实说明。'
+	)
+	return create_base_agent(tools=tools, system_prompt=system_prompt)
+
+
+def invoke_agent(
+	agent,
+	user_content: str,
+	*,
+	thread_id: str | None = None,
+	rag_context: str | None = None,
+) -> dict[str, Any]:
 	"""调用 Agent：传入用户一句话，返回包含整段对话 messages 的字典。"""
-	# LangChain Agent 规定的入参格式：一条用户消息
-	payload: dict[str, Any] = {
-		'messages': [{'role': 'user', 'content': user_content}],
-	}
+	messages: list[dict[str, str]] = []
+	if rag_context:
+		messages.append(
+			{
+				'role': 'user',
+				'content': f'【系统自动检索到的参考资料】\n{rag_context}',
+			}
+		)
+		messages.append(
+			{
+				'role': 'assistant',
+				'content': '已阅读参考资料，我会在回答中结合这些内容。',
+			}
+		)
+	messages.append({'role': 'user', 'content': user_content})
+
+	payload: dict[str, Any] = {'messages': messages}
 	# 若传了 thread_id，同 ID 的多轮请求会共用记忆（需 LangGraph checkpointer 等才完整生效）
 	if thread_id:
 		payload['thread_id'] = thread_id

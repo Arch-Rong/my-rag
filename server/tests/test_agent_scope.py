@@ -45,3 +45,13 @@ def test_anonymous_system_only_allowed(api_client: TestClient) -> None:
 		json={'message': 'hello', 'scope': 'system_only'},
 	)
 	assert response.status_code != 401
+
+
+def test_anonymous_all_scope_downgrades(api_client: TestClient) -> None:
+	response = api_client.post(
+		'/api/v1/agent/chat',
+		json={'message': 'hello', 'scope': 'all'},
+	)
+	assert response.status_code != 401
+	if response.status_code == 200:
+		assert response.json()['scope'] == 'system_only'

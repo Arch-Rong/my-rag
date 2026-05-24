@@ -22,7 +22,12 @@ export type {
 } from './types';
 
 export { agentChat } from './endpoints/agent';
-export type { AgentChatResponse, AgentChatRequest } from './endpoints/agent';
+export type {
+	AgentChatResponse,
+	AgentChatRequest,
+	AgentScope,
+	CitationItem,
+} from './endpoints/agent';
 
 export { healthCheck } from './endpoints/health';
 export type { HealthResponse } from './endpoints/health';

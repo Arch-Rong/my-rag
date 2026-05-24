@@ -19,7 +19,8 @@ import {
 } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { agentChat, ApiError } from '@/api/index';
+import { agentChat, ApiError, type AgentScope } from '@/api/index';
+import { isLoggedIn } from '@/lib/auth';
 import { APP_HEADER_HEIGHT, PAGE_SHELL } from '@/lib/layout';
 import { cn } from '@/lib/utils';
 
@@ -29,7 +30,7 @@ type Message = {
 	id: string;
 	role: 'user' | 'assistant';
 	content: string;
-	citations?: { label: string; excerpt: string }[];
+	citations?: { id: string; label: string; excerpt: string }[];
 };
 
 const SCOPE_OPTIONS: { key: Scope; label: string }[] = [
@@ -38,12 +39,18 @@ const SCOPE_OPTIONS: { key: Scope; label: string }[] = [
 	{ key: 'user', label: '我的' },
 ];
 
+function scopeToApi(scope: Scope): AgentScope {
+	if (scope === 'system') return 'system_only';
+	if (scope === 'user') return 'user_only';
+	return 'all';
+}
+
 function CitationItem({
 	index,
 	citation,
 }: {
 	index: number;
-	citation: { label: string; excerpt: string };
+	citation: { id: string; label: string; excerpt: string };
 }) {
 	const [open, setOpen] = useState(index === 1);
 
@@ -87,7 +94,7 @@ function CitationsSidebar({
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	citations?: { label: string; excerpt: string }[];
+	citations?: { id: string; label: string; excerpt: string }[];
 	className?: string;
 }) {
 	return (
@@ -114,7 +121,11 @@ function CitationsSidebar({
 					{citations?.length ? (
 						<ul>
 							{citations.map((c, i) => (
-								<CitationItem key={c.label} index={i + 1} citation={c} />
+								<CitationItem
+									key={c.id ?? `citation-${i}`}
+									index={i + 1}
+									citation={c}
+								/>
 							))}
 						</ul>
 					) : (
@@ -136,7 +147,8 @@ export function ChatPage() {
 		{
 			id: 'welcome',
 			role: 'assistant',
-			content: '你好，我是 MedRAG。输入医学问题，将调用后端大模型作答。',
+			content:
+				'你好，我是 MedRAG。选择上方检索范围（全部 / 教材 / 我的），我会从对应知识库检索资料后作答。',
 		},
 	]);
 	const [loading, setLoading] = useState(false);
@@ -153,9 +165,37 @@ export function ChatPage() {
 		if (lastCitations?.length) setSidebarOpen(true);
 	}, [lastCitations]);
 
+	function handleScopeChange(next: Scope) {
+		if ((next === 'user' || next === 'all') && !isLoggedIn()) {
+			if (next === 'user') {
+				setMessages((prev) => [
+					...prev,
+					{
+						id: `hint-${Date.now()}`,
+						role: 'assistant',
+						content: '「我的」需先登录后使用，请前往登录页。',
+					},
+				]);
+				return;
+			}
+		}
+		setScope(next);
+	}
+
 	async function handleSend() {
 		const text = input.trim();
 		if (!text || loading) return;
+		if (scope === 'user' && !isLoggedIn()) {
+			setMessages((prev) => [
+				...prev,
+				{
+					id: `hint-${Date.now()}`,
+					role: 'assistant',
+					content: '检索「我的」知识库需要先登录。',
+				},
+			]);
+			return;
+		}
 		setMessages((prev) => [
 			...prev,
 			{ id: `u-${Date.now()}`, role: 'user', content: text },
@@ -163,10 +203,18 @@ export function ChatPage() {
 		setInput('');
 		setLoading(true);
 		try {
-			const { reply } = await agentChat(text, { threadId });
+			const { reply, citations } = await agentChat(text, {
+				threadId,
+				scope: scopeToApi(scope),
+			});
 			setMessages((prev) => [
 				...prev,
-				{ id: `a-${Date.now()}`, role: 'assistant', content: reply },
+				{
+					id: `a-${Date.now()}`,
+					role: 'assistant',
+					content: reply,
+					citations: citations?.length ? citations : undefined,
+				},
 			]);
 		} catch (err) {
 			const hint =
@@ -211,7 +259,7 @@ export function ChatPage() {
 									aria-selected={scope === key}
 									variant='ghost'
 									size='sm'
-									onClick={() => setScope(key)}
+									onClick={() => handleScopeChange(key)}
 									className={cn(
 										'h-7 px-3 shadow-none',
 										scope === key
