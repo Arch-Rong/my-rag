@@ -61,6 +61,24 @@ curl http://127.0.0.1:8000/api/v1/health/db   # 需先启动 uvicorn
 
 **聊天** `POST /api/v1/agent/chat`：`scope` 默认 `system_only`（未登录可用）；`user_only` / `all` 需登录。
 
+### 入库分片（Worker）
+
+上传成功后 API 会**后台自动**解析 + 结构分片（**LangChain** `MarkdownHeaderTextSplitter` / `RecursiveCharacterTextSplitter`）；也可手动：
+
+```bash
+python scripts/run_ingest.py                  # 处理所有 queued
+python scripts/run_ingest.py <document_id>
+# 或 POST /api/v1/documents/{id}/ingest
+```
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/v1/documents/{id}` | 查 status / chunk_count |
+| POST | `/api/v1/documents/{id}/ingest` | 重新解析分片 |
+| GET | `/api/v1/documents/{id}/chunks` | 分块预览（前 N 条） |
+
+`status`: `queued` → `parsing` → `ready`（`chunks.embedding` 待下一步向量化）。
+
 ### 1. 命令行跑 Agent 示例
 
 ```bash

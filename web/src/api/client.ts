@@ -1,3 +1,4 @@
+import { authBearerInterceptor } from './interceptors/auth';
 import {
 	devLogRequestInterceptor,
 	jsonContentTypeInterceptor,
@@ -42,6 +43,7 @@ export class ApiClient {
 
 	constructor() {
 		this.useRequest(jsonContentTypeInterceptor);
+		this.useRequest(authBearerInterceptor);
 		this.useRequest(devLogRequestInterceptor);
 		this.useResponse(devLogResponseInterceptor);
 		this.useResponse(httpErrorInterceptor);
@@ -147,6 +149,10 @@ export class ApiClient {
 		options?: Omit<ApiRequestOptions, 'path' | 'body'>,
 	) {
 		return this.request<T>({ ...options, path, method: 'POST', body });
+	}
+
+	delete<T>(path: string, options?: Omit<ApiRequestOptions, 'path' | 'body'>) {
+		return this.request<T>({ ...options, path, method: 'DELETE' });
 	}
 }
 

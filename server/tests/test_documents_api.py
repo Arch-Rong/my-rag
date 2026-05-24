@@ -58,6 +58,29 @@ def auth_headers(api_client: TestClient) -> dict[str, str]:
 	return {'Authorization': f'Bearer {token}'}
 
 
+def test_list_documents_requires_auth(api_client: TestClient) -> None:
+	response = api_client.get('/api/v1/documents')
+	assert response.status_code == 401
+
+
+def test_list_documents_returns_user_uploads(
+	api_client: TestClient, auth_headers: dict[str, str]
+) -> None:
+	upload = api_client.post(
+		'/api/v1/documents',
+		files={'file': ('listed.md', b'# listed', 'text/markdown')},
+		headers=auth_headers,
+	)
+	assert upload.status_code == 201
+
+	list_resp = api_client.get('/api/v1/documents', headers=auth_headers)
+	assert list_resp.status_code == 200, list_resp.text
+	body = list_resp.json()
+	assert body['total'] >= 1
+	ids = {item['id'] for item in body['items']}
+	assert upload.json()['id'] in ids
+
+
 def test_upload_requires_auth(api_client: TestClient) -> None:
 	response = api_client.post(
 		'/api/v1/documents',

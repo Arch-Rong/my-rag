@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, UploadFile
-from sqlmodel import Session, delete
+from sqlmodel import Session, delete, or_, select
 
 from app.config import Settings, get_settings
 from app.models.document import Document
@@ -114,6 +114,34 @@ def create_document_upload(
 	session.commit()
 	session.refresh(document)
 	return document
+
+
+def list_library_documents(
+	session: Session,
+	*,
+	user_id: uuid.UUID,
+	limit: int = 100,
+) -> list[Document]:
+	"""
+	知识库列表：系统预置教材 + 当前用户上传（均排除软删）。
+
+	系统教材 owner_type=system；用户文件需 user_id 一致且 owner_type=user。
+	按 created_at 倒序，最新在前。
+	"""
+	limit = min(max(limit, 1), 200)
+	stmt = (
+		select(Document)
+		.where(
+			Document.status != DocumentStatus.deleted,
+			or_(
+				Document.owner_type == OwnerType.system,
+				(Document.user_id == user_id) & (Document.owner_type == OwnerType.user),
+			),
+		)
+		.order_by(Document.created_at.desc())
+		.limit(limit)
+	)
+	return list(session.exec(stmt).all())
 
 
 def get_document_or_404(session: Session, document_id: uuid.UUID) -> Document:

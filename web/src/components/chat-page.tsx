@@ -199,7 +199,7 @@ export function ChatPage() {
 				<div className='flex min-w-0 flex-1 flex-col'>
 					<div className='mb-5 flex items-center justify-between gap-4'>
 						<div
-							className='border-border bg-muted/50 inline-flex rounded-md border p-0.5'
+							className='border-border bg-muted/50 dark:bg-muted inline-flex rounded-md border p-0.5'
 							role='tablist'
 							aria-label='检索范围'
 						>
@@ -249,7 +249,7 @@ export function ChatPage() {
 										className={cn(
 											'text-[0.9375rem] leading-[1.8]',
 											msg.role === 'user'
-												? 'border-primary/15 bg-primary/8 text-foreground max-w-[78%] rounded-2xl border px-4 py-3'
+												? 'border-primary/15 bg-primary/8 dark:border-border dark:bg-muted/70 text-foreground max-w-[78%] rounded-2xl border px-4 py-3'
 												: 'text-foreground max-w-full',
 										)}
 									>

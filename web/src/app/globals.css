@@ -79,25 +79,38 @@
 	--sidebar-ring: oklch(0.44 0.07 172);
 }
 
+/*
+ * 暗黑 · 自习模式
+ * 背景/卡片用低饱和中性灰（hue≈265 石板色），避免大面积泛绿；
+ * 青绿仅保留在 primary / ring，用于按钮、链接、选中态。
+ */
 .dark {
-	--background: oklch(0.2 0.02 172);
-	--foreground: oklch(0.93 0.015 96);
-	--card: oklch(0.24 0.024 172);
-	--card-foreground: oklch(0.93 0.015 96);
-	--popover: oklch(0.24 0.024 172);
-	--popover-foreground: oklch(0.93 0.015 96);
-	--primary: oklch(0.65 0.08 172);
-	--primary-foreground: oklch(0.22 0.03 172);
-	--secondary: oklch(0.28 0.03 172);
-	--secondary-foreground: oklch(0.88 0.02 96);
-	--muted: oklch(0.28 0.025 172);
-	--muted-foreground: oklch(0.65 0.03 96);
-	--accent: oklch(0.3 0.035 172);
-	--accent-foreground: oklch(0.9 0.02 96);
-	--destructive: oklch(0.6 0.14 28);
-	--border: oklch(1 0.02 172 / 12%);
-	--input: oklch(1 0.02 172 / 14%);
-	--ring: oklch(0.55 0.07 172);
+	--background: oklch(0.165 0.006 265);
+	--foreground: oklch(0.91 0.01 95);
+	--card: oklch(0.2 0.006 265);
+	--card-foreground: oklch(0.91 0.01 95);
+	--popover: oklch(0.2 0.006 265);
+	--popover-foreground: oklch(0.91 0.01 95);
+	--primary: oklch(0.72 0.1 172);
+	--primary-foreground: oklch(0.17 0.008 265);
+	--secondary: oklch(0.24 0.006 265);
+	--secondary-foreground: oklch(0.86 0.01 95);
+	--muted: oklch(0.24 0.005 265);
+	--muted-foreground: oklch(0.66 0.012 95);
+	--accent: oklch(0.26 0.006 265);
+	--accent-foreground: oklch(0.9 0.01 95);
+	--destructive: oklch(0.62 0.14 28);
+	--border: oklch(0.55 0.01 265 / 22%);
+	--input: oklch(0.28 0.006 265);
+	--ring: oklch(0.72 0.1 172);
+	--sidebar: oklch(0.18 0.006 265);
+	--sidebar-foreground: oklch(0.91 0.01 95);
+	--sidebar-primary: oklch(0.72 0.1 172);
+	--sidebar-primary-foreground: oklch(0.17 0.008 265);
+	--sidebar-accent: oklch(0.26 0.006 265);
+	--sidebar-accent-foreground: oklch(0.9 0.01 95);
+	--sidebar-border: oklch(0.55 0.01 265 / 22%);
+	--sidebar-ring: oklch(0.72 0.1 172);
 }
 
 @layer base {

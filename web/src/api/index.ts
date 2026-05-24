@@ -26,3 +26,17 @@ export type { AgentChatResponse, AgentChatRequest } from './endpoints/agent';
 
 export { healthCheck } from './endpoints/health';
 export type { HealthResponse } from './endpoints/health';
+
+export { login, register, fetchMe } from './endpoints/auth';
+export type { AuthResponse, LoginRequest } from './endpoints/auth';
+
+export {
+	listDocuments,
+	uploadDocument,
+	deleteDocument,
+} from './endpoints/documents';
+export type {
+	DocumentDto,
+	DocumentListResponse,
+	DocumentStatus,
+} from './endpoints/documents';

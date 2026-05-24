@@ -48,6 +48,12 @@ class Settings(BaseSettings):
 	jwt_algorithm: str = 'HS256'
 	jwt_expire_minutes: int = 60 * 24 * 7  # 7 天
 
+	# 结构分片（Worker ingest）
+	chunk_max_tokens: int = 512
+	chunk_overlap_tokens: int = 64
+	# 上传成功后是否后台自动分片（pytest 可在 conftest 设为 false）
+	ingest_on_upload: bool = True
+
 	@property
 	def llm_api_key(self) -> str:
 		return self.ark_api_key or self.openai_api_key
