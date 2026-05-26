@@ -14,11 +14,10 @@ from app.config import get_settings
 from app.db.session import get_session
 from app.models.enums import RetrievalScope
 from app.models.user import User
-from app.rag.gate import should_activate_rag
 from app.services.retrieval_service import (
 	format_rag_context,
 	hits_to_citations,
-	search_chunks,
+	search_chunks_vector,
 )
 
 # 本文件的路由前缀是 /agent；在 router.py 里还会再挂一层 /api/v1
@@ -117,20 +116,23 @@ def agent_chat(
 	user_id = current_user.id if current_user else None
 	_ensure_llm_configured()
 
-	# 1. 预检索 + 门控：仅 kb_intent 或分数够高时启用 RAG
-	hits = search_chunks(
+	# 1. 先向量检索：有结果则注入参考资料，无结果则仅用户问题
+	hits = search_chunks_vector(
 		session,
 		body.message,
 		scope=scope,
 		user_id=user_id,
 	)
-	use_rag = should_activate_rag(body.message, hits)
+	use_rag = bool(hits)
+	print(hits,use_rag,'hits 向量检索 成功')
 	rag_context = format_rag_context(hits) if use_rag else ''
+	print(rag_context,'rag_context 向量检索 成功')
 	citations = (
 		[CitationItem(**c) for c in hits_to_citations(hits)] if use_rag else []
 	)
+	print(citations,'citations 向量检索 成功')
 
-	# 2. 按门控创建 Agent（RAG 模式带工具，否则通用对话）
+	# 2. 有检索结果 → 基于资料的 Agent；无结果 → 通用对话
 	agent = create_chat_agent(
 		session, scope=scope, user_id=user_id, use_rag=use_rag
 	)

@@ -4,6 +4,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
+from app.logging_setup import configure_app_logging
+
+configure_app_logging()
 
 app = FastAPI(title='MedRAG API', version='0.1.0')
 

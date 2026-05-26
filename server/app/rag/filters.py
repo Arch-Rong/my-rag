@@ -42,15 +42,25 @@ def document_scope_filters(
 
 
 def scope_has_embeddings(
-	session: Session,
-	scope: RetrievalScope,
-	user_id: uuid.UUID | None,
+	session: Session,  # 数据库会话
+	scope: RetrievalScope,  # 聊天页选的检索范围：全部 / 教材 / 我的
+	user_id: uuid.UUID | None,  # 当前用户；与 scope 一起决定「能看哪些文档」
 ) -> bool:
+	"""
+	判断：在当前 scope 内，是否至少有一条 chunk 已经写过向量（embedding）。
+
+	用于 search_chunks_vector 的前置检查：
+	  - 返回 True  → 可以走向量检索（embed_query + pgvector）
+	  - 返回 False → 直接视为「未检索到」，只把用户问题交给模型
+
+	注意：只检查「有没有向量」，不检查和你这问是否相关。
+	"""
+	# 与检索相同的文档范围：未删除、status=ready、按 scope 过滤教材/我的上传
 	filters = document_scope_filters(scope, user_id, ready_only=True)
 	count = session.exec(
 		select(func.count())
 		.select_from(Chunk)
-		.join(Document, Chunk.document_id == Document.id)
+		.join(Document, Chunk.document_id == Document.id)  # chunk 必须属于 scope 内的 document
 		.where(*filters, Chunk.embedding.isnot(None))  # type: ignore[union-attr]
 	).one()
 	return int(count or 0) > 0

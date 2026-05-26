@@ -72,8 +72,8 @@ def create_chat_agent(
 	"""
 	聊天专用 Agent。
 
-	use_rag=True：注册知识库工具，要求基于检索资料作答；
-	use_rag=False：无工具，通用对话（检索门控关闭时）。
+	use_rag=True：已预注入向量检索结果，据此作答（不再挂知识库工具）；
+	use_rag=False：向量未命中，仅用通用知识回答用户问题。
 	"""
 	settings = get_settings()
 	scope_hint = _SCOPE_HINT[scope]
@@ -81,23 +81,17 @@ def create_chat_agent(
 	if not use_rag:
 		system_prompt = (
 			f'{settings.agent_general_prompt}\n\n'
-			f'（用户界面当前检索范围为 {scope_hint}，但本轮未命中知识库，未注入参考资料。）'
+			f'（本轮向量检索未命中知识库，检索范围：{scope_hint}。）'
 		)
 		return create_base_agent(tools=[], system_prompt=system_prompt)
 
-	from app.tools.knowledge_base import build_knowledge_tools
-
-	tools = build_knowledge_tools(session, scope=scope, user_id=user_id)
 	system_prompt = (
 		f'{settings.agent_system_prompt}\n\n'
 		f'当前知识库检索范围：{scope_hint}。\n'
-		'工具说明：\n'
-		'- search_knowledge：混合检索（向量+关键词）资料片段；\n'
-		'- list_knowledge_documents：列出当前范围内的文档。\n'
-		'请优先依据已注入的参考资料或工具检索结果作答，并注明来源；'
-		'若资料中无相关内容，如实说明，不要用「整个知识库只有医学资料」这类笼统拒答。'
+		'本轮已在消息中注入向量检索到的参考资料，请优先依据这些内容作答并注明来源；'
+		'不要声称「知识库中没有资料」而忽略已注入的片段。'
 	)
-	return create_base_agent(tools=tools, system_prompt=system_prompt)
+	return create_base_agent(tools=[], system_prompt=system_prompt)
 
 
 def invoke_agent(

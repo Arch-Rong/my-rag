@@ -94,10 +94,13 @@ def ingest_document(
 			from app.services.embedding_service import embed_document_chunks
 
 			embed_document_chunks(session, document_id)
-		except Exception:
+		except Exception as exc:
 			logger.exception(
-				'embedding failed for document %s; sparse search still available',
+				'embedding failed for document %s (model=%s): %s; '
+				'run: python scripts/test_embedding.py',
 				document_id,
+				get_settings().embedding_model,
+				exc,
 			)
 
 	return document

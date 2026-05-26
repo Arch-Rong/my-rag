@@ -22,8 +22,12 @@ class Settings(BaseSettings):
 		'不要声称「只有医学资料」而忽略用户上传的非教材文档。'
 	)
 
-	# 向量化（火山方舟 Embedding，OpenAI 兼容 /embeddings）
-	embedding_model: str = 'doubao-embedding-large-text-250515'
+	# 向量化：vision 类走 /embeddings/multimodal；纯文本模型走 /embeddings
+	embedding_model: str = 'doubao-embedding-vision-251215'
+	embedding_doc_instructions: str = ''
+	embedding_query_instructions: str = ''
+	embedding_multimodal_sparse: bool = False
+	embedding_request_timeout: float = 120.0
 
 	# 兼容旧配置（未填 ARK_API_KEY 时回退）
 	openai_api_key: str = ''
@@ -60,6 +64,8 @@ class Settings(BaseSettings):
 	chunk_overlap_tokens: int = 64
 	# 上传成功后是否后台自动分片（pytest 可在 conftest 设为 false）
 	ingest_on_upload: bool = True
+	# True：独立子进程 ingest，避免 dev 下 uvicorn --reload 杀掉进程内后台任务
+	ingest_spawn_subprocess: bool = True
 	# 入库后自动写入 chunk 向量（需 ARK_API_KEY）
 	embed_on_ingest: bool = True
 
@@ -68,8 +74,10 @@ class Settings(BaseSettings):
 	retrieval_sparse_top_k: int = 12
 	retrieval_final_top_k: int = 6
 	retrieval_rrf_k: int = 60
-	# 检索门控：映射后最高分 < τ 且非 kb_intent → 不注入 RAG（见 app/rag/gate.py）
-	retrieval_gate_score_threshold: float = 0.25
+	# 最终 Top-K 中同一文档最多几条，避免单一大教材占满结果、挤掉用户上传文件
+	retrieval_max_chunks_per_document: int = 2
+	# 向量检索最低相似度（score = 1 - 余弦距离），低于此视为「未检索到」
+	retrieval_vector_min_score: float = 0.22
 
 	agent_general_prompt: str = (
 		'你是 MedRAG 学习助手。本轮未启用知识库检索，请用通用知识直接、简洁地回答。'

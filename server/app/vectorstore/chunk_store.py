@@ -43,6 +43,8 @@ class ChunkVectorStore:
 		# ① 问题 → 向量（与入库时 chunk.embedding 同一模型、同一维度）
 		query_vector = embed_query(query)
 
+		print(query_vector,'query_vector 把用户问题向量化 成功')
+
 		# ② 根据 scope 生成 SQL 过滤：未删、ready、owner_type / user_id
 		filters = list(document_scope_filters(scope, user_id, ready_only=True))
 		if document_ids:
